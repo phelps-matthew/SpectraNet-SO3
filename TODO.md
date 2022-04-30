@@ -1,4 +1,6 @@
 # To Do
+- [X] convert healpix tensorflow operations to pytorch
+- [X] fix in-place operation in `predict_probability` preventing gradient backward propagation
 - [] Add gradient ascent to `predict_rotation` using argmax(logits) as initialization
 - [] Add positional encoding
 - [] np arrays to cuda check
