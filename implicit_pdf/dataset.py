@@ -30,7 +30,7 @@ class SymSolDataset(Dataset):
         self.labels = torch.from_numpy(self.labels)
         assert len(self.img_paths) == self.labels.shape[0]
 
-        # set dataset length
+        # set dataset length for convenient subsetting (mostly debugging)
         if self.cfg.data.length == -1:
             self.length = self.labels.shape[0]
         else:
