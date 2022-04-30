@@ -19,21 +19,18 @@ from typing import Union
 # print(model)
 
 
-def euler_to_so3(angles: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+def euler_to_so3(angles: np.ndarray) -> np.ndarray:
     """Transform euler angles to so3 rotation matrix
 
     Args:
         angles: np.ndarray of shape (n, 3) with last dimension representing
         rotation angle (radians) around x, y, z axis respectively.
     """
-    if isinstance(angles, np.ndarray):
-        angles = torch.from_numpy(angles)
+    sin_angles = np.sin(angles)
+    cos_angles = np.cos(angles)
 
-    sin_angles = torch.sin(angles)
-    cos_angles = torch.cos(angles)
-
-    sx, sy, sz = torch.unbind(sin_angles, dim=-1)
-    cx, cy, cz = torch.unbind(cos_angles, dim=-1)
+    sx, sy, sz = np.moveaxis(sin_angles, -1, 0)
+    cx, cy, cz = np.moveaxis(cos_angles, -1, 0)
     m00 = cy * cz
     m01 = (sx * sy * cz) - (cx * sz)
     m02 = (cx * sy * cz) + (sx * sz)
@@ -43,7 +40,7 @@ def euler_to_so3(angles: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
     m20 = -sy
     m21 = sx * cy
     m22 = cx * cy
-    matrix = torch.stack((m00, m01, m02, m10, m11, m12, m20, m21, m22), dim=-1)
+    matrix = np.stack((m00, m01, m02, m10, m11, m12, m20, m21, m22), axis=-1)
     return matrix.reshape(*sin_angles.shape[:-1], 3, 3)
 
 
