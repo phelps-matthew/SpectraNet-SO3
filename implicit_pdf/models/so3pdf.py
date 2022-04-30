@@ -122,8 +122,57 @@ class SO3PDF:
             return self.grids[size]
         else:
             logging.info(f"Using grid of size {size}. Requested was {num_queries}")
-            self.grids[size] = np.float32(generate_healpix_grid(size=size))
+            self.grids[size] = self.generate_healpix_grid_torch(size=size)
             return self.grids[size]
+
+    def generate_healpix_grid_torch(self, size=None, recursion_level=None):
+        """Generates an equivolumetric grid on SO(3) following Yershova et al. (2010).
+
+        Uses a Healpix grid on the 2-sphere as a starting point and then tiles it
+        along the 'tilt' direction 6*2**recursion_level times over 2pi.
+
+        Args:
+            recursion_level: An integer which determines the level of resolution of the
+            grid.  The final number of points will be 72*8**recursion_level.  A
+            recursion_level of 2 (4k points) was used for training and 5 (2.4M points)
+            for evaluation.
+            size: A number of rotations to be included in the grid.  The nearest grid
+            size in log space is returned.
+
+        Returns:
+            (N, 3, 3) array of rotation matrices, where N=72*8**recursion_level.
+        """
+        import healpy as hp
+
+        assert not (recursion_level is None and size is None)
+        if size:
+            recursion_level = max(int(np.round(np.log(size / 72.0) / np.log(8.0))), 0)
+        number_per_side = 2**recursion_level
+        number_pix = hp.nside2npix(number_per_side)
+        s2_points = hp.pix2vec(number_per_side, np.arange(number_pix))
+        s2_points = np.stack([*s2_points], 1).astype(np.float32)
+        s2_points = torch.from_numpy(s2_points).to(self.device)
+
+        # Take these points on the sphere and
+        azimuths = torch.arctan2(s2_points[:, 1], s2_points[:, 0])
+        tilts = torch.linspace(0, 2 * torch.pi, 6 * 2**recursion_level + 1)[:-1]
+        polars = torch.arccos(s2_points[:, 2])
+        grid_rots_mats = []
+        for tilt in tilts:
+            # Build up the rotations from Euler angles, zyz format
+            rot_mats = euler_to_so3(
+                torch.stack([azimuths, torch.zeros(number_pix), torch.zeros(number_pix)], 1)
+            )
+            rot_mats = rot_mats @ euler_to_so3(
+                torch.stack([torch.zeros(number_pix), torch.zeros(number_pix), polars], 1)
+            )
+            rot_mats = rot_mats @ torch.unsqueeze(
+                euler_to_so3(torch.tensor([tilt, 0.0, 0.0])), 0
+            )
+            grid_rots_mats.append(rot_mats)
+
+        grid_rots_mats = torch.cat(grid_rots_mats, 0)
+        return grid_rots_mats
 
 
 def generate_healpix_grid(size=None, recursion_level=None):
