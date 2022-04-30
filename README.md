@@ -4,7 +4,8 @@ Pytorch implementation of [Implicit Representation of Probability Distributions 
 
 ## Installation
 ```bash
-# dependencies - uses mlflow for logging artifacts/metrics and pyrallis for easy config management
+# dependencies - uses mlflow for logging artifacts/metrics and pyrallis for easy
+# config management
 pip install torch torchvision
 pip install -U mlflow pyrallis pillow matplotlib tqdm
 
@@ -17,6 +18,7 @@ pip install -e implicit-pdf/implicit_pdf
 # 3.1 GB download
 symsol_path="~/data/datasets/symsol_1.0.0"
 mkdir $symsol_path
+cd $symsol_path
 curl -O https://storage.googleapis.com/gresearch/implicit-pdf/symsol_dataset.zip
 unzip symsol_dataset.zip
 ```
