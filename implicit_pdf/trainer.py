@@ -141,6 +141,7 @@ class Trainer:
         assert split in {"train", "test"}
         is_train = split == "train"
         epoch = self.curr_epoch
+        self.img_model.train() if is_train else self.img_model.eval()
         self.implicit_model.train() if is_train else self.implicit_model.eval()
         loader = self.train_loader if is_train else self.test_loader
 
@@ -152,11 +153,15 @@ class Trainer:
         for it, (x, y) in pbar:
             x = x.to(self.device)
             y = y.to(self.device)
-            img_feature = self.img_model(x)
+
+            # get image feature vector
+            with torch.no_grad():
+                img_feature = self.img_model(x)
 
             # forward the model, calculate loss
             with torch.set_grad_enabled(is_train):
-                probs = self.so3pdf.predict_probability(img_feature, y, train=True)
+                probs = self.so3pdf.predict_probability(img_feature, y, train=is_train)
+                # negative log liklihood
                 loss = -torch.log(probs).mean()
                 losses.append(loss.item())
 

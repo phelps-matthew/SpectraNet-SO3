@@ -68,7 +68,7 @@ def main():
 
         # build vision model
         logger.info("initializing ResNet18 image model")
-        img_model = models.resnet18(pretrained=False)
+        img_model = models.resnet18(pretrained=True)
         img_model.fc = torch.nn.Identity()
 
         # build implicit pdf model
