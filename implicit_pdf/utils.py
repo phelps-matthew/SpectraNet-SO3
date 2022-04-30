@@ -11,11 +11,39 @@ import collections
 from typing import Union
 from torchvision import models
 
-#model = models.resnet18(pretrained=False)
-#model.fc = nn.Identity()
-#x = torch.randn(1, 3, 224, 224)
-#output = model(x)
-#print(model)
+# model = models.resnet18(pretrained=False)
+# model.fc = nn.Identity()
+# x = torch.randn(1, 3, 224, 224)
+# output = model(x)
+# print(model)
+
+
+def euler_to_so3(angles: np.ndarray) -> torch.Tensor:
+    """Transform euler angles to so3 rotation matrix
+
+    Args:
+        angles: np.ndarray of shape (n, 3) with last dimension representing
+        rotation angle (radians) around x, y, z axis respectively.
+    """
+    if isinstance(angles, np.ndarray):
+        angles = torch.from_numpy(angles)
+
+    sin_angles = torch.sin(angles)
+    cos_angles = torch.cos(angles)
+
+    sx, sy, sz = torch.unbind(sin_angles, dim=-1)
+    cx, cy, cz = torch.unbind(cos_angles, dim=-1)
+    m00 = cy * cz
+    m01 = (sx * sy * cz) - (cx * sz)
+    m02 = (cx * sy * cz) + (sx * sz)
+    m10 = cy * sz
+    m11 = (sx * sy * sz) + (cx * cz)
+    m12 = (cx * sy * sz) - (sx * cz)
+    m20 = -sy
+    m21 = sx * cy
+    m22 = cx * cy
+    matrix = torch.stack((m00, m01, m02, m10, m11, m12, m20, m21, m22), dim=-1)
+    return matrix.reshape(*sin_angles.shape[:-1], 3, 3)
 
 
 def set_seed(seed):
@@ -29,9 +57,11 @@ def accuracy(y_pred, y):
     """correct predictions / total"""
     return y_pred.eq(y.view_as(y_pred)).float().mean()
 
+
 def nll_loss(y_pred):
     """negative log liklihood loss with y_pred as normalized p(y_pred|x)"""
     return -torch.log(y_pred).mean()
+
 
 def l2(y_pred, y):
     """mean batch l2 norm"""
