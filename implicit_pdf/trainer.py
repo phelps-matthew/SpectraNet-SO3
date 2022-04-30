@@ -52,6 +52,7 @@ class Trainer:
         self.device = "cpu"
         if torch.cuda.is_available():
             self.device = torch.cuda.current_device()
+            self.img_model = self.img_model.to(self.device)
             self.implicit_model = self.implicit_model.to(self.device)
 
         # set datloaders

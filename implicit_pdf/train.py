@@ -77,6 +77,8 @@ def main():
 
         # initialize Trainer
         logger.info("initializing trainer")
+        if train_dataset is None and test_dataset is None:
+            logger.error("no datasets passed!")
         trainer = Trainer(cfg, img_model, implicit_model, train_dataset, test_dataset)
 
         # log params, state dicts, and relevant training scripts to mlflow
