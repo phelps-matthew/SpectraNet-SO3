@@ -51,9 +51,11 @@ class DataConfig:
     """config for model specification"""
 
     # root dir of train dataset
-    train_root: Union[str, Path] = "./data/processed/train"
+    train_root: Union[str, Path] = "~/data/datasets/symsol_1.0.0/train"
     # root dir of test dataset
-    test_root: Optional[Union[Path, str]] = "./data/processed/test"
+    test_root: Optional[Union[Path, str]] = "~/data/datasets/symsol_1.0.0/test"
+    # symmetric solid object string (tet, cube, icosa, cone, cyl, sphere)
+    symsol_object: str = "tet"
     # shuffle dataloaders
     shuffle: bool = True
 
@@ -74,12 +76,14 @@ class LogConfig:
 class TrainConfig:
     """config for training instance"""
 
+    # config for data specification
+    data: DataConfig = field(default_factory=DataConfig)
     # number of rotation queries during training (populates SO3 and provides normalization)
     num_train_queries: int = 72
     # number of rotation queries during evaluation (populates SO3 and provides normalization)
     num_eval_queries: int = 72
     # length of image feature vector
-    len_img_feature: int = 256
+    len_img_feature: int = 512
     # rotation representation dimension
     rot_dims: int = 9
     # sizes of fully connected layers in SO3MLP
@@ -126,12 +130,12 @@ class TrainConfig:
     resume: bool = False
     # maximum number of steps (overrides epochs)
     steps: Optional[int] = None
-    # training loss function : (crossentropy, l1, l2, mse, zero)
-    loss: Criterion = Criterion.crossentropy
     # metric function 1: (l1, l2, mse, zero)
-    metric1: Criterion = Criterion.accuracy
+    metric1: Criterion = Criterion.zero
     # enable ray tune
     tune: bool = False
+    # activate torch anomaly detection for debugging
+    anomaly_detection: bool = False
 
 
 if __name__ == "__main__":

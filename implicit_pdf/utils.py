@@ -10,6 +10,7 @@ import torch
 import collections
 from typing import Union
 from torchvision import models
+from typing import Union
 
 # model = models.resnet18(pretrained=False)
 # model.fc = nn.Identity()
@@ -18,7 +19,7 @@ from torchvision import models
 # print(model)
 
 
-def euler_to_so3(angles: np.ndarray) -> torch.Tensor:
+def euler_to_so3(angles: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
     """Transform euler angles to so3 rotation matrix
 
     Args:
@@ -68,7 +69,7 @@ def l2(y_pred, y):
     return torch.nn.PairwiseDistance(p=2)(y_pred, y).mean()
 
 
-def zero(y, y_pred):
+def zero(y=None, y_pred=None):
     """zero criterion"""
     return torch.tensor([0.0], dtype=torch.float32).to(y.device)
 

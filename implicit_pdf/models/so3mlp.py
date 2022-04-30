@@ -14,6 +14,8 @@ class SO3MLP(nn.Module):
         self.len_img_feature = self.cfg.len_img_feature
         self.rot_dims = self.cfg.rot_dims
         self.fc_sizes = self.cfg.fc_sizes
+        self.relu = nn.ReLU(inplace=True)
+        self.softmax = nn.Softmax(dim=-1)
 
         self.fc_img = nn.Linear(self.len_img_feature, self.fc_sizes[0])
         self.fc_rot_query = nn.Linear(self.rot_dims, self.fc_sizes[0])
@@ -42,7 +44,7 @@ class SO3MLP(nn.Module):
 
         # broadcast sum to combine inputs
         x = x_img[:, None, :] + x_rot
-        x = F.relu(x)
+        x = self.relu(x)
 
         # apply mlp block to form logits
         for layer in self.fc_layers:
@@ -51,7 +53,8 @@ class SO3MLP(nn.Module):
         logits = x[..., 0]
 
         if apply_softmax:
-            return F.softmax(logits, dim=-1)
+            #return F.softmax(logits, dim=-1)
+            return self.softmax(logits)
         else:
             return logits 
 
@@ -59,11 +62,14 @@ if __name__ == "__main__":
     from torchinfo import summary
     from implicit_pdf.cfg import TrainConfig
 
-    model = SO3MLP(TrainConfig())
-    img_feature = torch.rand(32, 256)
-    rot_query = torch.rand(32, 72, 9)
+    cfg = TrainConfig()
+    model = SO3MLP(cfg)
+    img_feature = torch.rand(32, cfg.len_img_feature)
+    rot_query = torch.rand(32, 72, cfg.rot_dims)
     logits = model(img_feature, rot_query)
+    softmaxes = model(img_feature, rot_query, apply_softmax=True)
 
     summary(model)
     print(model)
     print(logits, logits.shape)
+    print(softmaxes, softmaxes.shape)

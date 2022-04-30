@@ -2,15 +2,9 @@
 Class and methods to generate rotation queries, pass through SO3MLP, and yield normalized 
 probability distribution function.
 """
-# TODO: Add gradient ascent to `predict_rotation` using argmax(logits) as initialization.
-# Add positional encoding
-# numpy arrays to cuda check
-# train flag on implicit model or model eval
-# output_pdf - are these really normalized?
 
 import logging
 import torch
-from torch.nn import functional as F
 import numpy as np
 from implicit_pdf.utils import euler_to_so3
 
@@ -44,9 +38,14 @@ class SO3PDF:
         """
         # generate grid of so3 queries
         if train:
-            query_rotations = self.generate_queries(self.num_train_queries)
+            query_rotations = torch.from_numpy(
+                self.generate_queries(self.num_train_queries)
+            )
         else:
-            query_rotations = self.generate_queries(self.num_eval_queries)
+            query_rotations = torch.from_numpy(
+                self.generate_queries(self.num_eval_queries)
+            )
+        num_queries = query_rotations.shape[0]
         # given grid, find requisite transformations to ensure set membership of so3 queries
         # Note: targeting last grid element [-1] is arbitrary, but helpful for bookkeeping
         delta_rot = torch.transpose(query_rotations[-1], 0, 1) @ so3
@@ -54,13 +53,13 @@ class SO3PDF:
         query_rotations = torch.einsum("aij,bjk->baik", query_rotations, delta_rot)
         shape = query_rotations.shape
         # flatten rotational dimension
-        query_rotations = query_rotations.reshape(
-            shape[0], shape[1], self.cfg.len_rotation
-        )
+        query_rotations = query_rotations.reshape(shape[0], shape[1], self.cfg.rot_dims)
         # calculate unnormalized probabilities
-        probabilities = self.implicit_model(img_feature, query_rotations, softmax=True)
+        probabilities = self.implicit_model(
+            img_feature, query_rotations, apply_softmax=True
+        )
         # rescale by SO3 volume to yield normalized p(R|x)
-        probabilities *= query_rotations.shape[1] / np.pi**2
+        probabilities *= num_queries / np.pi**2
         return probabilities[:, -1]
 
     def predict_rotation(self, img_feature):
@@ -75,7 +74,7 @@ class SO3PDF:
         """
         # generate queries, flatten rotation dimension
         query_rotations = torch.from_numpy(self.generate_queries(self.num_eval_queries))
-        query_rotations = query_rotations.view(-1, self.cfg.len_rotation)
+        query_rotations = query_rotations.view(-1, self.cfg.rot_dims)
         logits = self.implicit_model(img_feature, query_rotations)
         # compuate argmax of logits and return highest probability rotations
         max_inds = torch.argmax(logits, dim=-1)
@@ -99,8 +98,10 @@ class SO3PDF:
             num_queries = self.num_eval_queries
         if query_rotations is None:
             query_rotations = torch.from_numpy(self.generate_queries(num_queries))
-        query_rotations = query_rotations.view(-1, self.cfg.len_rotation)
-        probabilities = self.implicit_model(img_feature, query_rotations, softmax=True)
+        query_rotations = query_rotations.view(-1, self.cfg.rot_dims)
+        probabilities = self.implicit_model(
+            img_feature, query_rotations, apply_softmax=True
+        )
         return query_rotations, probabilities
 
     def generate_queries(self, num_queries=None):
@@ -164,14 +165,10 @@ def generate_healpix_grid(size=None, recursion_level=None):
         rot_mats = rot_mats @ euler_to_so3(
             np.stack([np.zeros(number_pix), np.zeros(number_pix), polars], 1)
         )
-        rot_mats = rot_mats @ torch.unsqueeze(euler_to_so3(np.array([tilt, 0.0, 0.0])), 0)
+        rot_mats = rot_mats @ torch.unsqueeze(
+            euler_to_so3(np.array([tilt, 0.0, 0.0])), 0
+        )
         grid_rots_mats.append(rot_mats)
 
     grid_rots_mats = np.concatenate(grid_rots_mats, 0)
     return grid_rots_mats
-
-if __name__ == "__main__":
-    num_queries = 2e7
-    grid_sizes = 72 * 8 ** np.arange(7)
-    size = grid_sizes[np.argmin(np.abs(np.log(num_queries) - np.log(grid_sizes)))]
-    queries = generate_healpix_grid(size)
