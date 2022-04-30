@@ -14,8 +14,6 @@ class SO3MLP(nn.Module):
         self.len_img_feature = self.cfg.len_img_feature
         self.rot_dims = self.cfg.rot_dims
         self.fc_sizes = self.cfg.fc_sizes
-        self.relu = nn.ReLU(inplace=True)
-        self.softmax = nn.Softmax(dim=-1)
 
         self.fc_img = nn.Linear(self.len_img_feature, self.fc_sizes[0])
         self.fc_rot_query = nn.Linear(self.rot_dims, self.fc_sizes[0])
@@ -44,7 +42,7 @@ class SO3MLP(nn.Module):
 
         # broadcast sum to combine inputs
         x = x_img[:, None, :] + x_rot
-        x = self.relu(x)
+        x = F.relu(x)
 
         # apply mlp block to form logits
         for layer in self.fc_layers:
@@ -53,8 +51,7 @@ class SO3MLP(nn.Module):
         logits = x[..., 0]
 
         if apply_softmax:
-            #return F.softmax(logits, dim=-1)
-            return self.softmax(logits)
+            return F.softmax(logits, dim=-1)
         else:
             return logits 
 

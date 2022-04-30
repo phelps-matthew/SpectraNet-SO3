@@ -30,8 +30,15 @@ class SymSolDataset(Dataset):
         self.labels = torch.from_numpy(self.labels)
         assert len(self.img_paths) == self.labels.shape[0]
 
+        # set dataset length
+        if self.cfg.data.length == -1:
+            self.length = self.labels.shape[0]
+        else:
+            assert self.cfg.data.length <= self.labels.shape[0]
+            self.length = self.cfg.data.length
+
     def __len__(self):
-        return len(self.labels.shape)
+        return self.length
 
     def __getitem__(self, idx):
         img_path = self.img_paths[idx]
@@ -54,5 +61,8 @@ if __name__ == "__main__":
 
     train_data = SymSolDataset(split="train")
     test_data = SymSolDataset(split="test")
+    # fmt: off
+    import ipdb; ipdb.set_trace(context=30)  # noqa
+    # fmt: on
     print(train_data[0])
     print(test_data[0])

@@ -58,6 +58,8 @@ class DataConfig:
     symsol_object: str = "tet"
     # shuffle dataloaders
     shuffle: bool = True
+    # use subset of dataset if length > -1
+    length: int = -1
 
 
 @dataclass()

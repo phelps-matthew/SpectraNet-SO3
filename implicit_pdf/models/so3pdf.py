@@ -59,7 +59,7 @@ class SO3PDF:
             img_feature, query_rotations, apply_softmax=True
         )
         # rescale by SO3 volume to yield normalized p(R|x)
-        probabilities *= num_queries / np.pi**2
+        probabilities = probabilities * num_queries / np.pi**2
         return probabilities[:, -1]
 
     def predict_rotation(self, img_feature):
