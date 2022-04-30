@@ -4,7 +4,6 @@ probability distribution function.
 """
 # TODO: Add gradient ascent to `predict_rotation` using argmax(logits) as initialization.
 # Add positional encoding
-# Remove tfg dependency by finding euler angle -> so3 mapping used
 # numpy arrays to cuda check
 # train flag on implicit model or model eval
 # output_pdf - are these really normalized?
@@ -13,8 +12,7 @@ import logging
 import torch
 from torch.nn import functional as F
 import numpy as np
-import tensorflow_graphics.geometry.transformation as tfg
-from typing import Optional
+from implicit_pdf.utils import euler_to_so3
 
 logger = logging.getLogger(__name__)
 
@@ -46,17 +44,19 @@ class SO3PDF:
         """
         # generate grid of so3 queries
         if train:
-          query_rotations = self.generate_queries(self.num_train_queries)
+            query_rotations = self.generate_queries(self.num_train_queries)
         else:
-          query_rotations = self.generate_queries(self.num_eval_queries)
+            query_rotations = self.generate_queries(self.num_eval_queries)
         # given grid, find requisite transformations to ensure set membership of so3 queries
         # Note: targeting last grid element [-1] is arbitrary, but helpful for bookkeeping
         delta_rot = torch.transpose(query_rotations[-1], 0, 1) @ so3
         # compute one rotated grid per batch sample
-        query_rotations = torch.einsum('aij,bjk->baik', query_rotations, delta_rot)
+        query_rotations = torch.einsum("aij,bjk->baik", query_rotations, delta_rot)
         shape = query_rotations.shape
         # flatten rotational dimension
-        query_rotations = query_rotations.reshape(shape[0], shape[1], self.cfg.len_rotation)
+        query_rotations = query_rotations.reshape(
+            shape[0], shape[1], self.cfg.len_rotation
+        )
         # calculate unnormalized probabilities
         probabilities = self.implicit_model(img_feature, query_rotations, softmax=True)
         # rescale by SO3 volume to yield normalized p(R|x)
@@ -143,7 +143,7 @@ def generate_healpix_grid(size=None, recursion_level=None):
     """
     import healpy as hp
 
-    assert not(recursion_level is None and size is None)
+    assert not (recursion_level is None and size is None)
     if size:
         recursion_level = max(int(np.round(np.log(size / 72.0) / np.log(8.0))), 0)
     number_per_side = 2**recursion_level
@@ -158,16 +158,20 @@ def generate_healpix_grid(size=None, recursion_level=None):
     grid_rots_mats = []
     for tilt in tilts:
         # Build up the rotations from Euler angles, zyz format
-        rot_mats = tfg.rotation_matrix_3d.from_euler(
+        rot_mats = euler_to_so3(
             np.stack([azimuths, np.zeros(number_pix), np.zeros(number_pix)], 1)
         )
-        rot_mats = rot_mats @ tfg.rotation_matrix_3d.from_euler(
+        rot_mats = rot_mats @ euler_to_so3(
             np.stack([np.zeros(number_pix), np.zeros(number_pix), polars], 1)
         )
-        rot_mats = rot_mats @ tf.expand_dims(
-            tfg.rotation_matrix_3d.from_euler([tilt, 0.0, 0.0]), 0
-        )
+        rot_mats = rot_mats @ torch.unsqueeze(euler_to_so3(np.array([tilt, 0.0, 0.0])), 0)
         grid_rots_mats.append(rot_mats)
 
     grid_rots_mats = np.concatenate(grid_rots_mats, 0)
     return grid_rots_mats
+
+if __name__ == "__main__":
+    num_queries = 2e7
+    grid_sizes = 72 * 8 ** np.arange(7)
+    size = grid_sizes[np.argmin(np.abs(np.log(num_queries) - np.log(grid_sizes)))]
+    queries = generate_healpix_grid(size)
