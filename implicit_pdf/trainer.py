@@ -35,7 +35,6 @@ class Trainer:
         self.cfg = cfg
         self.img_model = img_model
         self.implicit_model = implicit_model
-        self.so3pdf = SO3PDF(cfg, self.implicit_model, img_model)
         self.train_dataset = train_dataset
         self.test_dataset = test_dataset
         self.test_only = self.train_dataset is None
@@ -54,6 +53,9 @@ class Trainer:
             self.device = torch.cuda.current_device()
             self.img_model = self.img_model.to(self.device)
             self.implicit_model = self.implicit_model.to(self.device)
+
+        # initialize so3 ipdf instance
+        self.so3pdf = SO3PDF(cfg, self.implicit_model, self.img_model, self.device)
 
         # set datloaders
         self.train_loader = self.create_dataloader(train=True)
@@ -198,11 +200,11 @@ class Trainer:
                 mlflow.log_metric("loss" + suffix, loss.item(), step)
                 mlflow.log_metric(self.cfg.metric1.name + suffix, metric1.item(), step)
                 # log grid of batch images
-                #n_rows = math.ceil(math.sqrt(self.cfg.bs))  # actually n_cols
-                #grid = torchvision.utils.make_grid(
+                # n_rows = math.ceil(math.sqrt(self.cfg.bs))  # actually n_cols
+                # grid = torchvision.utils.make_grid(
                 #    x.cpu(), normalize=True, nrow=n_rows
-                #).permute(1, 2, 0)
-                #mlflow.log_image(grid.numpy(), f"digits{suffix}.png")
+                # ).permute(1, 2, 0)
+                # mlflow.log_image(grid.numpy(), f"digits{suffix}.png")
 
             # stop training early based on steps
             if self.cfg.steps is not None and step >= self.cfg.steps:

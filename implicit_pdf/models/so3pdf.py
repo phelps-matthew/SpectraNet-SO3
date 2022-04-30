@@ -12,10 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 class SO3PDF:
-    def __init__(self, cfg, implicit_model, img_model):
+    def __init__(self, cfg, implicit_model, img_model, device):
         self.cfg = cfg
         self.implicit_model = implicit_model
         self.img_model = img_model
+        self.device = device
         self.num_train_queries = self.cfg.num_train_queries
         self.num_eval_queries = self.cfg.num_eval_queries
         # grid of equivolume SO3 queries, cached as hashmap with n_queries as keys
