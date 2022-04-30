@@ -3,7 +3,7 @@ Pytorch implementation of [Implicit Representation of Probability Distributions 
 
 
 ## Installation
-```bash
+```
 git clone https://github.com/phelps-matthew/implicit-pdf.git
 cd implicit_pdf-schema
 pip install -e .
@@ -16,7 +16,7 @@ pip install torch torchvision mlflow pyrallis pillow matplotlib tqdm
 ```
 
 ## Download raw Symmetric Solids dataset (SymSol 1.0.0)
-```bash
+```
 # 3.1 GB download
 symsol_path="~/data/datasets/symsol_1.0.0"
 mkdir $symsol_path
