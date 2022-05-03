@@ -11,12 +11,73 @@ import collections
 from typing import Union
 from torchvision import models
 from typing import Union
+from kornia.geometry.conversions import rotation_matrix_to_angle_axis
 
 # model = models.resnet18(pretrained=False)
 # model.fc = nn.Identity()
 # x = torch.randn(1, 3, 224, 224)
 # output = model(x)
 # print(model)
+
+
+def so3_to_axis_angle(so3: torch.Tensor):
+    """Convert SO3 matrix to axis angle, returning tuple of axis angle"""
+    omega_vector = rotation_matrix_to_angle_axis(so3)
+    angle = torch.norm(omega_vector, dim=-1)
+    axis = torch.nn.functional.normalize(so3, dim=-1)  # normalized
+    return angle, axis
+
+
+def nonzero_sign(x):
+    one = torch.ones_like(x)
+    return torch.where(torch.greater_equal(x, 0.0), one, -one)
+
+
+def so3_to_euler(so3: torch.Tensor):
+    """Convert SO3 rotation matrix to Euler angles, based on tf.geometry.transformations
+
+    Args:
+        so3: (N, 3, 3)
+    Returns:
+        euler angles: (N, 3)
+    """
+
+    def general_case(rotation_matrix, r20, eps_addition):
+        """Handles the general case."""
+        theta_y = -torch.arcsin(r20)
+        sign_cos_theta_y = nonzero_sign(torch.cos(theta_y))
+        r00 = rotation_matrix[..., 0, 0]
+        r10 = rotation_matrix[..., 1, 0]
+        r21 = rotation_matrix[..., 2, 1]
+        r22 = rotation_matrix[..., 2, 2]
+        r00 = nonzero_sign(r00) * eps_addition + r00
+        r22 = nonzero_sign(r22) * eps_addition + r22
+        # cos_theta_y evaluates to 0 on Gimbal locks, in which case the output of
+        # this function will not be used.
+        theta_z = torch.atan2(r10 * sign_cos_theta_y, r00 * sign_cos_theta_y)
+        theta_x = torch.atan2(r21 * sign_cos_theta_y, r22 * sign_cos_theta_y)
+        angles = torch.stack((theta_x, theta_y, theta_z), dim=-1)
+        return angles
+
+    def gimbal_lock(rotation_matrix, r20, eps_addition):
+        """Handles Gimbal locks."""
+        r01 = rotation_matrix[..., 0, 1]
+        r02 = rotation_matrix[..., 0, 2]
+        sign_r20 = nonzero_sign(r20)
+        r02 = nonzero_sign(r02) * eps_addition + r02
+        theta_x = torch.atan2(-sign_r20 * r01, -sign_r20 * r02)
+        theta_y = -sign_r20 * torch.pi / 2.0
+        theta_z = torch.zeros_like(theta_x)
+        angles = torch.stack((theta_x, theta_y, theta_z), dim=-1)
+        return angles
+
+    r20 = so3[..., 2, 0]
+    eps_addition = 2.38e-7
+    general_solution = general_case(so3, r20, eps_addition)
+    gimbal_solution = gimbal_lock(so3, r20, eps_addition)
+    is_gimbal = torch.eq(torch.abs(r20), 1)
+    gimbal_mask = torch.stack((is_gimbal, is_gimbal, is_gimbal), dim=-1)
+    return torch.where(gimbal_mask, gimbal_solution, general_solution)
 
 
 def euler_to_so3(angles: np.ndarray) -> np.ndarray:

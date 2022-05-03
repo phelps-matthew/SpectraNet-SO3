@@ -72,6 +72,8 @@ class LogConfig:
     enable_async: bool = True
     # frequency to log batch quantities
     batch_freq: int = 1
+    # save plot of p(R|x) for each image x in batch
+    plot_pdf: bool = True
 
 
 @dataclass()
