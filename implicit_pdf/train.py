@@ -75,10 +75,14 @@ def main():
         # log params, state dicts, and relevant training scripts to mlflow
         script_dir = Path(__file__).parent
         cfg_dict = pyrallis.encode(cfg)  # cfg as dict, encoded for yaml
+        recorder.log_artifact(script_dir / "cfg.py", "archive")
+        recorder.log_artifact(script_dir / "dataset.py", "archive")
+        recorder.log_artifact(script_dir / "recorder.py", "archive")
         recorder.log_artifact(script_dir / "train.py", "archive")
         recorder.log_artifact(script_dir / "trainer.py", "archive")
-        recorder.log_artifact(script_dir / "dataset.py", "archive")
-        recorder.log_artifact(script_dir / "cfg.py", "archive")
+        recorder.log_artifact(script_dir / "utils.py", "archive")
+        recorder.log_artifact(script_dir / "models/so3mlp.py", "archive")
+        recorder.log_artifact(script_dir / "models/so3pdf.py", "archive")
         recorder.log_dict(cfg_dict, "archive/cfg.yaml")
         recorder.log_params(flatten(cfg_dict))
 
