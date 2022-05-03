@@ -31,3 +31,22 @@ class Recorder(RecorderBase):
             split: train, test, or infer split
         """
         pass
+
+    @AsyncCaller.async_dec(ac_attr="async_log")
+    def log_image_grid(
+        self,
+        x,
+        prefix="train",
+        suffix="",
+    ):
+        """log batch of images"""
+        n_rows = math.ceil(math.sqrt(self.cfg.bs))  # actually n_cols
+
+        # log images. these are (N, C, H, W) torch.float32
+        if x is not None:
+            grid_x = torchvision.utils.make_grid(
+                x, normalize=True, nrow=n_rows, pad_value=1.0, padding=2
+            ).permute(1, 2, 0)
+            self.client.log_image(
+                self.run_id, grid_x.numpy(), f"{prefix}_x_{suffix}.jpg"
+            )
