@@ -13,6 +13,7 @@ from implicit_pdf.dataset import SymSolDataset
 from implicit_pdf.models.so3mlp import SO3MLP
 from implicit_pdf.trainer import Trainer
 from implicit_pdf.utils import flatten, set_seed
+from implicit_pdf.recorder import Recorder
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -48,20 +49,10 @@ def main():
     ):
         test_dataset = SymSolDataset(split="test", cfg=cfg)
 
-    # create experiment
-    # if experiment does not exist, create one
-    if mlflow.get_experiment_by_name(cfg.exp_name) is None:
-        logger.info(f"creating mlflow experiment: {cfg.exp_name}")
-        exp_id = mlflow.create_experiment(cfg.exp_name)
-    # otherwise, return exp_id of existing experiment
-    else:
-        exp_id = mlflow.get_experiment_by_name(cfg.exp_name).experiment_id
-
-    # train as mlflow run
-    with mlflow.start_run(experiment_id=exp_id, run_name=cfg.run_name):
-        mlflow_artifact_path = mlflow.active_run().info.artifact_uri[7:]
-        logger.info(f"starting mlflow run: {Path(mlflow_artifact_path).parent}")
-
+    # create recorder and start mlflow run
+    recorder = Recorder(cfg)
+    recorder.create_experiment()
+    with recorder.start_run():
         # activate debug mode if necessary
         if cfg.anomaly_detection:
             torch.autograd.set_detect_anomaly(True)
@@ -79,17 +70,17 @@ def main():
         logger.info("initializing trainer")
         if train_dataset is None and test_dataset is None:
             logger.error("no datasets passed!")
-        trainer = Trainer(cfg, img_model, implicit_model, train_dataset, test_dataset)
+        trainer = Trainer(cfg, img_model, implicit_model, train_dataset, test_dataset, recorder)
 
         # log params, state dicts, and relevant training scripts to mlflow
-        cfg_dict = pyrallis.encode(cfg)  # cfg as dict, encoded for yaml
         script_dir = Path(__file__).parent
-        mlflow.log_artifact(script_dir / "train.py", "archive")
-        mlflow.log_artifact(script_dir / "trainer.py", "archive")
-        mlflow.log_artifact(script_dir / "dataset.py", "archive")
-        mlflow.log_artifact(script_dir / "cfg.py", "archive")
-        mlflow.log_dict(cfg_dict, "archive/cfg.yaml")
-        mlflow.log_params(flatten(cfg_dict))
+        cfg_dict = pyrallis.encode(cfg)  # cfg as dict, encoded for yaml
+        recorder.log_artifact(script_dir / "train.py", "archive")
+        recorder.log_artifact(script_dir / "trainer.py", "archive")
+        recorder.log_artifact(script_dir / "dataset.py", "archive")
+        recorder.log_artifact(script_dir / "cfg.py", "archive")
+        recorder.log_dict(cfg_dict, "archive/cfg.yaml")
+        recorder.log_params(flatten(cfg_dict))
 
         # train
         if cfg.load_ckpt_pth:
@@ -97,6 +88,9 @@ def main():
         if cfg.save_init:
             trainer.save_model("init.pt")
         trainer.train()
+
+        # stop mlflow run
+        recorder.end_run()
 
 
 if __name__ == "__main__":

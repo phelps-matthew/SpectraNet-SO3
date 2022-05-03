@@ -30,6 +30,7 @@ class Trainer:
         implicit_model,
         train_dataset,
         test_dataset=None,
+        recorder=None,
         verbose=True,
     ):
         self.cfg = cfg
@@ -38,14 +39,17 @@ class Trainer:
         self.train_dataset = train_dataset
         self.test_dataset = test_dataset
         self.test_only = self.train_dataset is None
+        self.recorder = recorder
         self.verbose = verbose
         self.curr_epoch = 0
         self.scheduler = None
 
         # set mlflow paths for model/optim saving
-        mlflow_artifact_path = mlflow.active_run().info.artifact_uri[7:]
-        self.ckpt_root = Path(mlflow_artifact_path) / "checkpoints"
-        (self.ckpt_root).mkdir(parents=True, exist_ok=True)
+        if recorder is not None:
+            self.ckpt_root = self.recorder.root / "checkpoints"
+            (self.ckpt_root).mkdir(parents=True, exist_ok=True)
+        else:
+            self.ckpt_root = ""
 
         # set gpu device if available
         self.device = "cpu"
@@ -196,9 +200,9 @@ class Trainer:
             if step % self.cfg.log.batch_freq == 0:
                 suffix = f"_{split}_batch"
                 if is_train:
-                    mlflow.log_metric("lr" + suffix, curr_lr, step)
-                mlflow.log_metric("loss" + suffix, loss.item(), step)
-                mlflow.log_metric(self.cfg.metric1.name + suffix, metric1.item(), step)
+                    self.recorder.log_metric("lr" + suffix, curr_lr, step)
+                self.recorder.log_metric("loss" + suffix, loss.item(), step)
+                self.recorder.log_metric(self.cfg.metric1.name + suffix, metric1.item(), step)
                 # log grid of batch images
                 # n_rows = math.ceil(math.sqrt(self.cfg.bs))  # actually n_cols
                 # grid = torchvision.utils.make_grid(
@@ -213,8 +217,8 @@ class Trainer:
         # log epoch end mean quantities
         loss_epoch = float(np.mean(losses))
         suffix = f"_{split}_epoch"
-        mlflow.log_metric("loss" + suffix, loss_epoch, step=epoch)
-        mlflow.log_metric(
+        self.recorder.log_metric("loss" + suffix, loss_epoch, step=epoch)
+        self.recorder.log_metric(
             self.cfg.metric1.name + suffix, float(np.mean(metric1s)), step=epoch
         )
         return loss_epoch
@@ -236,7 +240,7 @@ class Trainer:
                 # update best loss, possibly save best model state
                 if test_epoch_loss < self.best_epoch_loss:
                     self.best_epoch_loss = test_epoch_loss
-                    mlflow.log_metric(
+                    self.recorder.log_metric(
                         "loss_test-best_epoch", self.best_epoch_loss, epoch
                     )
                     if cfg.save_best:

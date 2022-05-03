@@ -21,7 +21,6 @@ from typing import Union
 
 def euler_to_so3(angles: np.ndarray) -> np.ndarray:
     """Transform euler angles to so3 rotation matrix
-
     Args:
         angles: np.ndarray of shape (n, 3) with last dimension representing
         rotation angle (radians) around x, y, z axis respectively.
@@ -85,7 +84,6 @@ def flatten(d, parent_key="", sep="."):
 
 def load_yaml(path: Union[Path, str]):
     """deserialize yaml as dict
-
     Args:
         path: Path to .yaml, .yml, or .json file.
     """

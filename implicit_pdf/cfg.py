@@ -67,7 +67,7 @@ class LogConfig:
     """config for logging specification"""
 
     # mlflow tracking uri
-    uri: Optional[str] = "~/dev/spec21/spec21/keypoint_regression/mlruns"
+    uri: Optional[str] = "~/dev/implicit-pdf/implicit_pdf/mlruns"
     # toggle asynchronous logging (not implemented in dl_schema)
     enable_async: bool = True
     # frequency to log batch quantities
