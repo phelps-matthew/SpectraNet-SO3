@@ -202,13 +202,22 @@ class Trainer:
                 if is_train:
                     self.recorder.log_metric("lr" + suffix, curr_lr, step)
                 self.recorder.log_metric("loss" + suffix, loss.item(), step)
-                self.recorder.log_metric(self.cfg.metric1.name + suffix, metric1.item(), step)
-                self.recorder.log_image_grid(x.detach().cpu(), prefix=split, suffix="batch")
+                self.recorder.log_metric(
+                    self.cfg.metric1.name + suffix, metric1.item(), step
+                )
+                self.recorder.log_image_grid(
+                    x.detach().cpu(), prefix=split, suffix="batch"
+                )
                 if self.cfg.log.plot_pdf and not is_train:
                     # compute pdf per image using eval rotation queries
                     query_rotations, pdfs = self.so3pdf.output_pdf(img_feature)
-
-
+                    figures = self.recorder.plot_pdf_panel(
+                        images=x,
+                        probabilities=pdfs,
+                        rotations=y,
+                        query_rotations=query_rotations,
+                        n_samples=2,
+                    )
 
                 # log grid of batch images
                 # n_rows = math.ceil(math.sqrt(self.cfg.bs))  # actually n_cols

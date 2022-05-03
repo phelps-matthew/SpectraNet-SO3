@@ -1,16 +1,14 @@
 """Logging utility for training runs"""
 import math
 import logging
-import json
 from pathlib import Path
 import numpy as np
-import mlflow
 import torchvision
 import torch
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
 from implicit_pdf.recorder_base import RecorderBase, AsyncCaller
-from implicit_pdf.utils import euler_to_so3, so3_to_axis_angle, cartesian_to_spherical
+from implicit_pdf.utils import euler_to_so3, so3_to_euler
 import io
 
 logger = logging.getLogger(__name__)
@@ -142,7 +140,7 @@ class Recorder(RecorderBase):
         def _show_single_marker(
             ax, rotation, marker, edgecolors=True, facecolors=False
         ):
-            angle, axis = so3_to_axis_angle(rotation)
+            eulers = so3_to_euler(rotation)
             xyz = rotation[:, 0]
             tilt_angle = eulers[0]
             longitude = np.arctan2(xyz[0], -xyz[1])
@@ -170,7 +168,7 @@ class Recorder(RecorderBase):
         cmap = plt.cm.hsv
         scatterpoint_scaling = 4e3
         # (n_queries, 3)
-        eulers_queries = tfg.euler.from_rotation_matrix(display_rotations)
+        eulers_queries = so3_to_euler(display_rotations)
         # first column of 3x3 rot matrix (n_queries, 3)
         xyz = display_rotations[:, :, 0]
         # roll, or angle corresponding to R_x
@@ -239,6 +237,6 @@ class Recorder(RecorderBase):
             )
 
         if to_image:
-            return plot_to_image(fig)
+            return self.figure_to_array(fig)
         else:
             return fig

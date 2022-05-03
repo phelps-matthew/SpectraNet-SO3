@@ -34,7 +34,7 @@ def nonzero_sign(x):
 
 
 def so3_to_euler(so3: torch.Tensor):
-    """Convert SO3 rotation matrix to Euler angles, based on tf.geometry.transformations
+    """Convert SO3 rotation matrix to Euler angles, based on tf.geometry.transformations.
 
     Args:
         so3: (N, 3, 3)

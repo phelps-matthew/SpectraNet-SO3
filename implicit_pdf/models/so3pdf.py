@@ -94,10 +94,11 @@ class SO3PDF:
         if num_queries is None:
             num_queries = self.num_eval_queries
         if query_rotations is None:
-            query_rotations = torch.from_numpy(self.generate_queries(num_queries))
+            query_rotations = self.generate_queries(num_queries)
         query_rotations = query_rotations.view(-1, self.cfg.rot_dims)
+        query_rotations_batch = query_rotations.repeat(img_feature.shape[0], 1, 1)
         probabilities = self.implicit_model(
-            img_feature, query_rotations, apply_softmax=True
+            img_feature, query_rotations_batch, apply_softmax=True
         )
         return query_rotations, probabilities
 
