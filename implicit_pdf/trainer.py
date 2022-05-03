@@ -203,7 +203,7 @@ class Trainer:
                     self.recorder.log_metric("lr" + suffix, curr_lr, step)
                 self.recorder.log_metric("loss" + suffix, loss.item(), step)
                 self.recorder.log_metric(self.cfg.metric1.name + suffix, metric1.item(), step)
-                self.recorder.log_image_grid(x, prefix=split, suffix="batch")
+                self.recorder.log_image_grid(x.detach().cpu(), prefix=split, suffix="batch")
                 # log grid of batch images
                 # n_rows = math.ceil(math.sqrt(self.cfg.bs))  # actually n_cols
                 # grid = torchvision.utils.make_grid(
