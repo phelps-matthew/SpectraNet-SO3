@@ -97,10 +97,11 @@ class SO3PDF:
             query_rotations = self.generate_queries(num_queries)
         query_rotations = query_rotations.view(-1, self.cfg.rot_dims)
         query_rotations_batch = query_rotations.repeat(img_feature.shape[0], 1, 1)
-        probabilities = self.implicit_model(
-            img_feature, query_rotations_batch, apply_softmax=True
-        )
-        return query_rotations, probabilities
+        with torch.no_grad():
+            probabilities = self.implicit_model(
+                img_feature, query_rotations_batch, apply_softmax=True
+            )
+        return query_rotations.view(-1, 3, 3), probabilities
 
     def generate_queries(self, num_queries=None):
         """Generate SO3 rotation queries as equivolume grid.

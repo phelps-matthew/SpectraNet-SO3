@@ -218,6 +218,9 @@ class Trainer:
                         query_rotations=query_rotations,
                         n_samples=2,
                     )
+                    # fmt: off
+                    import ipdb; ipdb.set_trace(context=30)  # noqa
+                    # fmt: on
 
                 # log grid of batch images
                 # n_rows = math.ceil(math.sqrt(self.cfg.bs))  # actually n_cols

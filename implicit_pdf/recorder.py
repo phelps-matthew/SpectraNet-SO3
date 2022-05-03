@@ -78,16 +78,17 @@ class Recorder(RecorderBase):
         Returns:
             figures: list of matplotlib figures
         """
-        figures = []
+        figure_list = []
         inches_per_subplot = 4
         canonical_rotation = np.float32(euler_to_so3(np.array([0.2] * 3)))
+        canonical_rotation = torch.from_numpy(canonical_rotation)
         for img_idx in range(n_samples):
             fig = plt.figure(
                 figsize=(3 * inches_per_subplot, inches_per_subplot), dpi=100
             )
             gs = fig.add_gridspec(1, 3)
             fig.add_subplot(gs[0, 0])
-            plt.imshow(images[img_idx])
+            plt.imshow(images[img_idx].permute(1, 2, 0))
             plt.axis("off")
             ax2 = fig.add_subplot(gs[0, 1:], projection="mollweide")
             figure_i = self.plot_pdf(
@@ -99,8 +100,8 @@ class Recorder(RecorderBase):
                 display_threshold_probability=1e-2 / query_rotations.shape[0],
                 canonical_rotation=canonical_rotation,
             )
-            figures.append(figure_i)
-        return torch.cat(figures, 0)
+            figure_list.append(figure_i)
+        return torch.cat(figure_list, 0)
 
     def plot_pdf(
         self,
@@ -112,7 +113,7 @@ class Recorder(RecorderBase):
         display_threshold_probability=0,
         to_image=True,
         show_color_wheel=True,
-        canonical_rotation=np.eye(3),
+        canonical_rotation=torch.eye(3),
     ):
         """Plot a single distribution on SO(3) using the tilt-colored method.
 
@@ -142,7 +143,7 @@ class Recorder(RecorderBase):
         ):
             eulers = so3_to_euler(rotation)
             xyz = rotation[:, 0]
-            tilt_angle = eulers[0]
+            tilt_angle = eulers[0].item()
             longitude = np.arctan2(xyz[0], -xyz[1])
             latitude = np.arcsin(xyz[2])
 
@@ -160,11 +161,11 @@ class Recorder(RecorderBase):
         if ax is None:
             fig = plt.figure(figsize=(8, 4), dpi=100)
             ax = fig.add_subplot(111, projection="mollweide")
-        if rotations_gt is not None and len(tf.shape(rotations_gt)) == 2:
-            rotations_gt = rotations_gt[tf.newaxis]
+        if rotations_gt is not None and rotations_gt.dim() == 2:
+            rotations_gt = rotations_gt[None, :]
 
         # (n_queries, 3, 3)
-        display_rotations = rotations @ canonical_rotation
+        display_rotations = torch.matmul(rotations, canonical_rotation)
         cmap = plt.cm.hsv
         scatterpoint_scaling = 4e3
         # (n_queries, 3)
@@ -182,7 +183,8 @@ class Recorder(RecorderBase):
         if rotations_gt is not None:
             # The visualization is more comprehensible if the GT
             # rotation markers are behind the output with white filling the interior.
-            display_rotations_gt = rotations_gt @ canonical_rotation
+            # (N, 3, 3)
+            display_rotations_gt = torch.matmul(rotations_gt, canonical_rotation)
 
             for rotation in display_rotations_gt:
                 _show_single_marker(ax, rotation, "o")
@@ -193,6 +195,9 @@ class Recorder(RecorderBase):
                 )
 
         # Display the distribution
+        # fmt: off
+        import ipdb; ipdb.set_trace(context=30)  # noqa
+        # fmt: on
         ax.scatter(
             longitudes[which_to_display],
             latitudes[which_to_display],
