@@ -206,7 +206,7 @@ class Trainer:
                     self.cfg.metric1.name + suffix, metric1.item(), step
                 )
                 self.recorder.log_image_grid(
-                    x.detach().cpu(), prefix=split, suffix="batch"
+                    x.detach().cpu(), prefix=split, name="x", suffix="batch"
                 )
                 if self.cfg.log.plot_pdf and not is_train:
                     # compute pdf per image using eval rotation queries
@@ -216,18 +216,17 @@ class Trainer:
                         probabilities=pdfs,
                         rotations=y,
                         query_rotations=query_rotations,
-                        n_samples=2,
+                        n_samples=-1,
                     )
-                    # fmt: off
-                    import ipdb; ipdb.set_trace(context=30)  # noqa
-                    # fmt: on
-
-                # log grid of batch images
-                # n_rows = math.ceil(math.sqrt(self.cfg.bs))  # actually n_cols
-                # grid = torchvision.utils.make_grid(
-                #    x.cpu(), normalize=True, nrow=n_rows
-                # ).permute(1, 2, 0)
-                # mlflow.log_image(grid.numpy(), f"digits{suffix}.png")
+                    self.recorder.log_image_grid(
+                        torch.from_numpy(figures),
+                        prefix=split,
+                        name="pdf",
+                        suffix="batch",
+                        NCHW=False,
+                        normalize=False,
+                        jpg=False,
+                    )
 
             # stop training early based on steps
             if self.cfg.steps is not None and step >= self.cfg.steps:

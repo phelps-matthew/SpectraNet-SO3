@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 from implicit_pdf.recorder_base import RecorderBase, AsyncCaller
 from implicit_pdf.utils import euler_to_so3, so3_to_euler
 import io
+import PIL
 
 logger = logging.getLogger(__name__)
 
@@ -36,19 +37,26 @@ class Recorder(RecorderBase):
     def log_image_grid(
         self,
         x,
+        name="x",
         prefix="train",
         suffix="",
+        NCHW=True,
+        normalize=True,
+        jpg=True,
     ):
         """log batch of images"""
-        n_rows = math.ceil(math.sqrt(self.cfg.bs))  # actually n_cols
+        N = x.shape[0]
+        n_rows = math.ceil(math.sqrt(N))  # actually n_cols
 
-        # log images. these are (N, C, H, W) torch.float32
         if x is not None:
+            if not NCHW:
+                x = x.permute(0, 3, 1, 2)
+            img_fmt = "jpg" if jpg else "png"
             grid_x = torchvision.utils.make_grid(
-                x, normalize=True, nrow=n_rows, pad_value=1.0, padding=2
+                x, normalize=normalize, nrow=n_rows, pad_value=1.0, padding=2
             ).permute(1, 2, 0)
             self.client.log_image(
-                self.run_id, grid_x.numpy(), f"{prefix}_x_{suffix}.jpg"
+                self.run_id, grid_x.numpy(), f"{prefix}_{name}_{suffix}.{img_fmt}"
             )
 
     def figure_to_array(self, figure):
@@ -57,10 +65,8 @@ class Recorder(RecorderBase):
         plt.savefig(buffer, format="png", dpi=100)
         plt.close(figure)
         buffer.seek(0)
-        # save matplotlib figure to np.ndarray
-        data = np.frombuffer(buffer.getvalue(), dtype=np.uint8)
-        # reshape from (n) to (3, H, W)
-        # data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        img = PIL.Image.open(buffer)
+        data = np.array(img)
         return data
 
     def plot_pdf_panel(
@@ -76,19 +82,24 @@ class Recorder(RecorderBase):
             query_rotations: rotations used to construct pdf, (N, n_queries, 3, 3)
             n_samples: plot n_samples pdfs viz. images[:n_samples]
         Returns:
-            figures: list of matplotlib figures
+            figures: list of matplotlib figures as np.ndarray
         """
+        if n_samples == -1:
+            n_samples = images.shape[0]
+        probabilities = probabilities.cpu()
         figure_list = []
         inches_per_subplot = 4
         canonical_rotation = np.float32(euler_to_so3(np.array([0.2] * 3)))
-        canonical_rotation = torch.from_numpy(canonical_rotation)
+        canonical_rotation = torch.from_numpy(canonical_rotation).to(
+            query_rotations.device
+        )
         for img_idx in range(n_samples):
             fig = plt.figure(
                 figsize=(3 * inches_per_subplot, inches_per_subplot), dpi=100
             )
             gs = fig.add_gridspec(1, 3)
             fig.add_subplot(gs[0, 0])
-            plt.imshow(images[img_idx].permute(1, 2, 0))
+            plt.imshow(images[img_idx].permute(1, 2, 0).cpu())
             plt.axis("off")
             ax2 = fig.add_subplot(gs[0, 1:], projection="mollweide")
             figure_i = self.plot_pdf(
@@ -101,7 +112,7 @@ class Recorder(RecorderBase):
                 canonical_rotation=canonical_rotation,
             )
             figure_list.append(figure_i)
-        return torch.cat(figure_list, 0)
+        return np.array(figure_list)
 
     def plot_pdf(
         self,
@@ -171,9 +182,9 @@ class Recorder(RecorderBase):
         # (n_queries, 3)
         eulers_queries = so3_to_euler(display_rotations)
         # first column of 3x3 rot matrix (n_queries, 3)
-        xyz = display_rotations[:, :, 0]
+        xyz = display_rotations[:, :, 0].cpu()
         # roll, or angle corresponding to R_x
-        tilt_angles = eulers_queries[:, 0]
+        tilt_angles = eulers_queries[:, 0].cpu()
 
         longitudes = np.arctan2(xyz[:, 0], -xyz[:, 1])
         latitudes = np.arcsin(xyz[:, 2])
@@ -184,7 +195,7 @@ class Recorder(RecorderBase):
             # The visualization is more comprehensible if the GT
             # rotation markers are behind the output with white filling the interior.
             # (N, 3, 3)
-            display_rotations_gt = torch.matmul(rotations_gt, canonical_rotation)
+            display_rotations_gt = torch.matmul(rotations_gt, canonical_rotation).cpu()
 
             for rotation in display_rotations_gt:
                 _show_single_marker(ax, rotation, "o")
@@ -195,9 +206,6 @@ class Recorder(RecorderBase):
                 )
 
         # Display the distribution
-        # fmt: off
-        import ipdb; ipdb.set_trace(context=30)  # noqa
-        # fmt: on
         ax.scatter(
             longitudes[which_to_display],
             latitudes[which_to_display],
