@@ -78,11 +78,12 @@ class Trainer:
 
     def create_dataloader(self, train=True):
         dataset = self.train_dataset if train else self.test_dataset
+        shuffle = self.cfg.data.shuffle if train else False
         if dataset is None:
             return None
         loader = DataLoader(
             dataset,
-            shuffle=self.cfg.data.shuffle,
+            shuffle=shuffle,
             pin_memory=True,
             batch_size=self.cfg.bs,
             num_workers=self.cfg.num_workers,
@@ -186,7 +187,7 @@ class Trainer:
                 probabilities=pdfs,
                 rotations=y,
                 query_rotations=query_rotations,
-                n_samples=4,
+                n_samples=self.cfg.log.n_pdf_samples,
             )
             self.recorder.log_image_grid(
                 torch.from_numpy(figures),

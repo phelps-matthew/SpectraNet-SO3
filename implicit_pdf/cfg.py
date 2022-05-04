@@ -76,6 +76,8 @@ class LogConfig:
     test_freq: int = 500
     # save plot of p(R|x) for each image x in batch
     plot_pdf: bool = True
+    # number of images to include in pdf grid plot
+    n_pdf_samples: int = 6
     # every `save_freq` steps save model checkpoint according to save criteria
     save_freq: int = 1000
     # save initial model state
@@ -107,11 +109,11 @@ class TrainConfig:
     # number of training steps (weight updates)
     train_steps: int = 1000
     # batch size
-    bs: int = 64
+    bs: int = 32
     # number of rotation queries during training (populates SO3 and provides normalization)
-    num_train_queries: int = 72
+    num_train_queries: int = 2 ** 12
     # number of rotation queries during evaluation (populates SO3 and provides normalization)
-    num_eval_queries: int = 72
+    num_eval_queries: int = 2 ** 16
     # length of image feature vector
     len_img_feature: int = 512
     # rotation representation dimension
