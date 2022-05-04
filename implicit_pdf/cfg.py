@@ -73,7 +73,7 @@ class LogConfig:
     # every `train_freq` steps, log training quantities (metrics, single image batch, etc.)
     train_freq: int = 100
     # every `test_freq` steps, log test quantities (metrics, single image batch, pdf plots, etc.)
-    test_freq: int = 100
+    test_freq: int = 500
     # save plot of p(R|x) for each image x in batch
     plot_pdf: bool = True
     # every `save_freq` steps save model checkpoint according to save criteria
@@ -105,7 +105,7 @@ class TrainConfig:
     # number of cpu workers in dataloader
     num_workers: int = 4
     # number of training steps (weight updates)
-    train_steps: int = 200
+    train_steps: int = 1000
     # batch size
     bs: int = 64
     # number of rotation queries during training (populates SO3 and provides normalization)

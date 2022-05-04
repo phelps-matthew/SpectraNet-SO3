@@ -96,7 +96,7 @@ class Trainer:
             self.scheduler = self.cfg.lr_method(
                 self.optimizer,
                 self.cfg.lr,
-                total_steps=self.cfg.train_steps,
+                total_steps=self.cfg.train_steps + 1,
                 div_factor=self.cfg.onecycle_div_factor,
                 final_div_factor=self.cfg.onecycle_final_div_factor,
             )
@@ -156,25 +156,28 @@ class Trainer:
         self.scheduler.step()
         return loss, lr
 
-    def evaluate_test_set(self):
+    def evaluate(self):
         """evaluate over test set"""
         self.implicit_model.eval()
         losses = []
-        pbar = tqdm(enumerate(self.test_loader), total=len(self.test_loader))
-        for it, (x, y) in pbar:
+        pbar = tqdm(self.test_loader)
+        for x, y in pbar:
             x = x.to(self.device)
             y = y.to(self.device)
             with torch.no_grad():
                 img_feature = self.img_model(x)
                 probs = self.so3pdf.predict_probability(img_feature, y, train=False)
                 loss = -torch.log(probs).mean()  # negative log liklihood
-            losses.append(loss)
-            pbar.set_description(f"(TEST STEP {it}: loss {loss.item():.6e}")
+            losses.append(loss.item())
+            pbar.set_description(f"EVALUATION loss {np.mean(losses):.6e}")
 
         # log test quantities
         mean_loss = float(np.mean(losses))
         self.recorder.log_metric("loss_test", mean_loss, self.curr_step)
         self.recorder.log_image_grid(x.detach().cpu(), name="test_x_batch")
+        if mean_loss < self.best_loss:
+            self.best_loss = mean_loss
+            self.recorder.log_metric("loss_test-best", self.best_loss, self.curr_step)
         if self.cfg.log.plot_pdf:
             # compute pdf per image using eval rotation queries
             query_rotations, pdfs = self.so3pdf.output_pdf(img_feature)
@@ -183,22 +186,19 @@ class Trainer:
                 probabilities=pdfs,
                 rotations=y,
                 query_rotations=query_rotations,
-                n_samples=-1,
+                n_samples=4,
             )
             self.recorder.log_image_grid(
                 torch.from_numpy(figures),
-                name="test_pdf_grid",
+                name=f"test_pdf/pdf_grid_{self.curr_step:06d}",
                 NCHW=False,
                 normalize=False,
                 jpg=False,
             )
-
         # model checkpointing
         if self.curr_step % self.cfg.log.save_freq == 0:
             # update best loss, possibly save best model state
             if mean_loss < self.best_loss:
-                self.best_loss = mean_loss
-                self.recorder.log_metric("loss_test-best", self.best_loss, self.curr_step)
                 if self.cfg.log.save_best:
                     self.save_model("best.pt", loss=self.best_loss)
             # save latest model
@@ -214,11 +214,12 @@ class Trainer:
         # initialize running lists of quantities to be logged
         losses = []
 
-        for step in range(self.cfg.train_steps):
+        # repeatedly iterate over dataset
+        for step in range(self.cfg.train_steps + 1):
             try:
-                x, y = next(data_iter) 
+                x, y = next(data_iter)
             except StopIteration:
-                data_iter = iter(loader)
+                data_iter = iter(self.train_loader)
                 x, y = next(data_iter)
 
             self.curr_step = step
@@ -234,14 +235,17 @@ class Trainer:
             losses.append(loss.item())
 
             # log train quantities
-            if step % self.cfg.log.train_freq == 0:
+            if step % self.cfg.log.train_freq == 0 or step == self.cfg.train_steps:
                 mean_train_loss = float(np.mean(losses))
                 losses = []
-                print(f"TRAIN STEP {step}/{self.cfg.train_steps}: lr {lr:.2e} loss {mean_train_loss:.6e}")
+                print(
+                    f"TRAIN STEP {step}/{self.cfg.train_steps}: "
+                    + f"loss {mean_train_loss:.6e} lr {lr:.2e}"
+                )
                 self.recorder.log_metric("lr", lr, step)
                 self.recorder.log_metric("loss_train", mean_train_loss, step)
                 self.recorder.log_image_grid(x.detach().cpu(), name="train_x_batch")
 
             # evaluate test set
-            if step % self.cfg.log.test_freq == 0:
-                self.evaluate_test_set()
+            if step % self.cfg.log.test_freq == 0 or step == self.cfg.train_steps:
+                self.evaluate()

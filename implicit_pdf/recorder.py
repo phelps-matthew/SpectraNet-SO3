@@ -1,16 +1,19 @@
 """Logging utility for training runs"""
-import math
+import io
 import logging
+import math
 from pathlib import Path
+
+import PIL
+from matplotlib import pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
-import torchvision
 import torch
 import torch.nn.functional as F
-from matplotlib import pyplot as plt
-from implicit_pdf.recorder_base import RecorderBase, AsyncCaller
+import torchvision
+
+from implicit_pdf.recorder_base import AsyncCaller, RecorderBase
 from implicit_pdf.utils import euler_to_so3, so3_to_euler
-import io
-import PIL
 
 logger = logging.getLogger(__name__)
 
@@ -224,6 +227,7 @@ class Recorder(RecorderBase):
             colormap_val = 0.5 + theta_grid / np.pi / 2.0
             ax.pcolormesh(theta, radii, colormap_val.T, cmap=cmap)
             ax.set_yticklabels([])
+            ax.set_xticks(ax.get_xticks())
             ax.set_xticklabels(
                 [
                     r"90$\degree$",
@@ -233,6 +237,7 @@ class Recorder(RecorderBase):
                     r"270$\degree$",
                     None,
                     r"0$\degree$",
+                    None,
                 ],
                 fontsize=14,
             )
@@ -240,7 +245,7 @@ class Recorder(RecorderBase):
             plt.text(
                 0.5,
                 0.5,
-                "Tilt",
+                r"$\omega$",
                 fontsize=14,
                 horizontalalignment="center",
                 verticalalignment="center",
