@@ -89,9 +89,9 @@ def main():
         # train
         if cfg.load_ckpt_pth:
             trainer.load_model()
-        if cfg.save_init:
+        if cfg.log.save_init:
             trainer.save_model("init.pt")
-        trainer.train()
+        trainer.run()
 
         # stop mlflow run
         recorder.end_run()

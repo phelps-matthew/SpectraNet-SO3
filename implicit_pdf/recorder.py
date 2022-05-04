@@ -38,8 +38,6 @@ class Recorder(RecorderBase):
         self,
         x,
         name="x",
-        prefix="train",
-        suffix="",
         NCHW=True,
         normalize=True,
         jpg=True,
@@ -56,7 +54,7 @@ class Recorder(RecorderBase):
                 x, normalize=normalize, nrow=n_rows, pad_value=1.0, padding=2
             ).permute(1, 2, 0)
             self.client.log_image(
-                self.run_id, grid_x.numpy(), f"{prefix}_{name}_{suffix}.{img_fmt}"
+                self.run_id, grid_x.numpy(), f"{name}.{img_fmt}"
             )
 
     def figure_to_array(self, figure):

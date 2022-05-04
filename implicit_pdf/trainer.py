@@ -41,8 +41,8 @@ class Trainer:
         self.test_only = self.train_dataset is None
         self.recorder = recorder
         self.verbose = verbose
-        self.curr_epoch = 0
         self.scheduler = None
+        self.curr_step = 0
 
         # set mlflow paths for model/optim saving
         if recorder is not None:
@@ -74,7 +74,7 @@ class Trainer:
             self.set_scheduler(steps=len(self.train_loader))
 
         # initialize best loss for ckpt saving
-        self.best_epoch_loss = float("inf")
+        self.best_loss = float("inf")
 
     def create_dataloader(self, train=True):
         dataset = self.train_dataset if train else self.test_dataset
@@ -96,8 +96,7 @@ class Trainer:
             self.scheduler = self.cfg.lr_method(
                 self.optimizer,
                 self.cfg.lr,
-                steps_per_epoch=steps,
-                epochs=self.cfg.epochs - self.curr_epoch,
+                total_steps=self.cfg.train_steps,
                 div_factor=self.cfg.onecycle_div_factor,
                 final_div_factor=self.cfg.onecycle_final_div_factor,
             )
@@ -116,7 +115,7 @@ class Trainer:
                 "model_state_dict": self.implicit_model.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "scheduler_state_dict": self.scheduler.state_dict(),
-                "epoch": self.curr_epoch,
+                "step": self.curr_epoch,
                 "loss": loss,
             },
             save_path,
@@ -137,135 +136,112 @@ class Trainer:
         if self.cfg.resume:
             logger.info(f"resuming from epoch: {ckpt['epoch']}")
             self.scheduler.load_state_dict(ckpt["scheduler_state_dict"])
-            self.curr_epoch = ckpt["epoch"] + 1
+            self.curr_step = ckpt["step"] + 1
 
         # load parameters
         logger.info(f"loading model params from {ckpt_path}")
         self.implicit_model.load_state_dict(ckpt["model_state_dict"])
 
-    def run_epoch(self, split: Literal["train", "test"] = "train"):
-        """train or evalauate on a single epoch, returning mean epoch loss"""
-        assert split in {"train", "test"}
-        is_train = split == "train"
-        epoch = self.curr_epoch
-        self.img_model.train() if is_train else self.img_model.eval()
-        self.implicit_model.train() if is_train else self.implicit_model.eval()
-        loader = self.train_loader if is_train else self.test_loader
+    def train_step(self, img_feature, y):
+        self.implicit_model.train()
+        with torch.enable_grad():
+            probs = self.so3pdf.predict_probability(img_feature, y, train=True)
+            loss = -torch.log(probs).mean()  # negative log liklihood
+        # get current learning rate before optim step
+        lr = self.optimizer.param_groups[0]["lr"]
+        # backward step
+        self.implicit_model.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        self.scheduler.step()
+        return loss, lr
 
-        # initialize running lists of quantities to be logged
-        losses, metric1s = [], []
-
-        # train/test loop
-        pbar = tqdm(enumerate(loader), total=len(loader))
+    def evaluate_test_set(self):
+        """evaluate over test set"""
+        self.implicit_model.eval()
+        losses = []
+        pbar = tqdm(enumerate(self.test_loader), total=len(self.test_loader))
         for it, (x, y) in pbar:
             x = x.to(self.device)
             y = y.to(self.device)
+            with torch.no_grad():
+                img_feature = self.img_model(x)
+                probs = self.so3pdf.predict_probability(img_feature, y, train=False)
+                loss = -torch.log(probs).mean()  # negative log liklihood
+            losses.append(loss)
+            pbar.set_description(f"(TEST STEP {it}: loss {loss.item():.6e}")
 
-            # get image feature vector
+        # log test quantities
+        mean_loss = float(np.mean(losses))
+        self.recorder.log_metric("loss_test", mean_loss, self.curr_step)
+        self.recorder.log_image_grid(x.detach().cpu(), name="test_x_batch")
+        if self.cfg.log.plot_pdf:
+            # compute pdf per image using eval rotation queries
+            query_rotations, pdfs = self.so3pdf.output_pdf(img_feature)
+            figures = self.recorder.plot_pdf_panel(
+                images=x,
+                probabilities=pdfs,
+                rotations=y,
+                query_rotations=query_rotations,
+                n_samples=-1,
+            )
+            self.recorder.log_image_grid(
+                torch.from_numpy(figures),
+                name="test_pdf_grid",
+                NCHW=False,
+                normalize=False,
+                jpg=False,
+            )
+
+        # model checkpointing
+        if self.curr_step % self.cfg.log.save_freq == 0:
+            # update best loss, possibly save best model state
+            if mean_loss < self.best_loss:
+                self.best_loss = mean_loss
+                self.recorder.log_metric("loss_test-best", self.best_loss, self.curr_step)
+                if self.cfg.log.save_best:
+                    self.save_model("best.pt", loss=self.best_loss)
+            # save latest model
+            if self.cfg.log.save_last:
+                self.save_model("last.pt", loss=mean_loss)
+
+    def run(self):
+        """iterate over train set and evaluate on test set"""
+        # do not track gradients on image feature extractor
+        self.img_model.eval()
+        data_iter = iter(self.train_loader)
+
+        # initialize running lists of quantities to be logged
+        losses = []
+
+        for step in range(self.cfg.train_steps):
+            try:
+                x, y = next(data_iter) 
+            except StopIteration:
+                data_iter = iter(loader)
+                x, y = next(data_iter)
+
+            self.curr_step = step
+            x = x.to(self.device)
+            y = y.to(self.device)
+
+            # compute image feature vector
             with torch.no_grad():
                 img_feature = self.img_model(x)
 
             # forward the model, calculate loss
-            with torch.set_grad_enabled(is_train):
-                probs = self.so3pdf.predict_probability(img_feature, y, train=is_train)
-                # negative log liklihood
-                loss = -torch.log(probs).mean()
-                losses.append(loss.item())
-
-            # get current learning rate before optim step
-            curr_lr = self.optimizer.param_groups[0]["lr"]
-
-            # backward step
-            if is_train:
-                self.implicit_model.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-                self.scheduler.step()
-
-            # calculate relevant metrics
-            metric1 = self.cfg.metric1(y)
-
-            # append losses and metrics to running lists
+            loss, lr = self.train_step(img_feature, y)
             losses.append(loss.item())
-            metric1s.append(metric1.item())
 
-            # report progress bar
-            pbar.set_description(
-                f"({split}) epoch {epoch} iter {it}: {split} loss {loss.item():.6e} "
-                + f"lr {curr_lr:.2e}"
-            )
+            # log train quantities
+            if step % self.cfg.log.train_freq == 0:
+                mean_train_loss = float(np.mean(losses))
+                losses = []
+                print(f"TRAIN STEP {step}/{self.cfg.train_steps}: lr {lr:.2e} loss {mean_train_loss:.6e}")
+                self.recorder.log_metric("lr", lr, step)
+                self.recorder.log_metric("loss_train", mean_train_loss, step)
+                self.recorder.log_image_grid(x.detach().cpu(), name="train_x_batch")
 
-            # log batch quantities
-            step = it + epoch * len(loader)
-            if step % self.cfg.log.batch_freq == 0:
-                suffix = f"_{split}_batch"
-                if is_train:
-                    self.recorder.log_metric("lr" + suffix, curr_lr, step)
-                self.recorder.log_metric("loss" + suffix, loss.item(), step)
-                self.recorder.log_metric(
-                    self.cfg.metric1.name + suffix, metric1.item(), step
-                )
-                self.recorder.log_image_grid(
-                    x.detach().cpu(), prefix=split, name="x", suffix="batch"
-                )
-                if self.cfg.log.plot_pdf and not is_train:
-                    # compute pdf per image using eval rotation queries
-                    query_rotations, pdfs = self.so3pdf.output_pdf(img_feature)
-                    figures = self.recorder.plot_pdf_panel(
-                        images=x,
-                        probabilities=pdfs,
-                        rotations=y,
-                        query_rotations=query_rotations,
-                        n_samples=-1,
-                    )
-                    self.recorder.log_image_grid(
-                        torch.from_numpy(figures),
-                        prefix=split,
-                        name="pdf",
-                        suffix="batch",
-                        NCHW=False,
-                        normalize=False,
-                        jpg=False,
-                    )
-
-            # stop training early based on steps
-            if self.cfg.steps is not None and step >= self.cfg.steps:
-                break
-
-        # log epoch end mean quantities
-        loss_epoch = float(np.mean(losses))
-        suffix = f"_{split}_epoch"
-        self.recorder.log_metric("loss" + suffix, loss_epoch, step=epoch)
-        self.recorder.log_metric(
-            self.cfg.metric1.name + suffix, float(np.mean(metric1s)), step=epoch
-        )
-        return loss_epoch
-
-    def train(self):
-        """train or evaluate over a number of epochs, returning best_epoch_loss"""
-        cfg = self.cfg
-        for epoch in range(self.curr_epoch, cfg.epochs):
-            self.curr_epoch = epoch
-
-            # train if dataset provided
-            if self.train_dataset is not None:
-                self.run_epoch("train")
-
-            # evaluate on test dataset
-            if self.test_dataset is not None:
-                test_epoch_loss = self.run_epoch("test")
-
-                # update best loss, possibly save best model state
-                if test_epoch_loss < self.best_epoch_loss:
-                    self.best_epoch_loss = test_epoch_loss
-                    self.recorder.log_metric(
-                        "loss_test-best_epoch", self.best_epoch_loss, epoch
-                    )
-                    if cfg.save_best:
-                        self.save_model("best.pt", loss=self.best_epoch_loss)
-
-                # save latest model
-                if cfg.save_last:
-                    self.save_model("last.pt", loss=test_epoch_loss)
-
-        return self.best_epoch_loss
+            # evaluate test set
+            if step % self.cfg.log.test_freq == 0:
+                self.evaluate_test_set()
