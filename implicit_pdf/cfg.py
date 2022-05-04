@@ -114,7 +114,7 @@ class TrainConfig:
     num_train_queries: int = 2 ** 12
     # number of rotation queries during evaluation (populates SO3 and provides normalization)
     num_eval_queries: int = 2 ** 16
-    # length of image feature vector
+    # length of image feature vector (512 or 2048 for resnets)
     len_img_feature: int = 512
     # rotation representation dimension
     rot_dims: int = 9
