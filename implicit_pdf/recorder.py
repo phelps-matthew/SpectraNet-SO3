@@ -71,7 +71,7 @@ class Recorder(RecorderBase):
         return data
 
     def plot_pdf_panel(
-        self, images, probabilities, rotations, query_rotations, n_samples=5
+        self, images, probabilities, rotations, query_rotations, n_samples=6
     ):
         """
         Plot panel of raw image and so3 distribution, one panel per image.

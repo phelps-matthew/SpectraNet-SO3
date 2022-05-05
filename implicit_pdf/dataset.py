@@ -1,5 +1,5 @@
 """
-Symmetric Solids 1.0.0 torch dataset. Only supports single object.
+Symmetric Solids 1.0.0 torch dataset. Only supports single symsol object.
 """
 from pathlib import Path
 
@@ -23,10 +23,14 @@ class SymSolDataset(Dataset):
         assert split in {"train", "test"}
         self.cfg = cfg
         self.root = Path(getattr(self.cfg.data, f"{split}_root")).expanduser()
+        self.split = split
         self.img_root = self.root / "images"
-        self.img_paths = [x for x in self.img_root.iterdir() if "tet_" in x.name]
+        symsol_shape = self.cfg.data.symsol_shape
+        self.img_paths = [
+            x for x in self.img_root.iterdir() if f"{symsol_shape}_" in x.name
+        ]
         self.img_paths = sorted(self.img_paths)
-        self.labels = np.load(self.root / "rotations.npz")["tet"]
+        self.labels = np.load(self.root / "rotations.npz")[symsol_shape]
         self.labels = torch.from_numpy(self.labels)
         assert len(self.img_paths) == self.labels.shape[0]
 
@@ -42,8 +46,14 @@ class SymSolDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = self.img_paths[idx]
-        # ignore all symmetric rotations, take only first
-        so3 = self.labels[idx][0]
+        so3 = self.labels[idx]
+        # given ground truth of many symmetric rotations, select on at random
+        if self.split == "train":
+            rand_index = np.random.choice(np.arange(so3.shape[0]))
+        # if evaluating test set, keep deterministic for nice mp4s of progress
+        else:
+            rand_index = 0
+        so3 = so3[rand_index]
         # load image as np.uint8 shape (28, 28)
         x = Image.open(img_path)
         x = np.array(x)
@@ -61,8 +71,5 @@ if __name__ == "__main__":
 
     train_data = SymSolDataset(split="train")
     test_data = SymSolDataset(split="test")
-    # fmt: off
-    import ipdb; ipdb.set_trace(context=30)  # noqa
-    # fmt: on
     print(train_data[0])
     print(test_data[0])

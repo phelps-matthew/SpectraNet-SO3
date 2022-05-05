@@ -54,12 +54,12 @@ class DataConfig:
     train_root: Union[str, Path] = "~/data/datasets/symsol_1.0.0/train"
     # root dir of test dataset
     test_root: Optional[Union[Path, str]] = "~/data/datasets/symsol_1.0.0/test"
-    # symmetric solid object string (tet, cube, icosa, cone, cyl, sphere)
-    symsol_object: str = "tet"
     # shuffle dataloaders
     shuffle: bool = True
     # use subset of dataset if length > -1
     length: int = -1
+    # symsol shape (tet, tetX, sphereX, cube, icosa, cone, cyl, cylO)
+    symsol_shape: str = "tet"
 
 
 @dataclass()
@@ -107,7 +107,7 @@ class TrainConfig:
     # number of cpu workers in dataloader
     num_workers: int = 4
     # number of training steps (weight updates)
-    train_steps: int = 1000
+    train_steps: int = int(1e5)
     # batch size
     bs: int = 32
     # number of rotation queries during training (populates SO3 and provides normalization)
