@@ -245,7 +245,7 @@ class Recorder(RecorderBase):
             plt.text(
                 0.5,
                 0.5,
-                r"$\omega$",
+                r"$\psi$",
                 fontsize=14,
                 horizontalalignment="center",
                 verticalalignment="center",
