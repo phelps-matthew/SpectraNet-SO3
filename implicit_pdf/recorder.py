@@ -26,17 +26,6 @@ class Recorder(RecorderBase):
         self.cfg = cfg
 
     @AsyncCaller.async_dec(ac_attr="async_log")
-    def log_iter(self, inputs, step=None, batch=True, split="train"):
-        """log batch artifacts
-        Args:
-            inputs: dictionary of torch inputs from run_epoch
-            step: iteration step
-            batch: batch iteration or epoch iteration
-            split: train, test, or infer split
-        """
-        pass
-
-    @AsyncCaller.async_dec(ac_attr="async_log")
     def log_image_grid(
         self,
         x,
@@ -56,9 +45,7 @@ class Recorder(RecorderBase):
             grid_x = torchvision.utils.make_grid(
                 x, normalize=normalize, nrow=n_rows, pad_value=1.0, padding=2
             ).permute(1, 2, 0)
-            self.client.log_image(
-                self.run_id, grid_x.numpy(), f"{name}.{img_fmt}"
-            )
+            self.client.log_image(self.run_id, grid_x.numpy(), f"{name}.{img_fmt}")
 
     def figure_to_array(self, figure):
         """convert matplotlib figure to numpy array"""
