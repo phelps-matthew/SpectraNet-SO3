@@ -3,9 +3,9 @@
 - [X] fix in-place operation in `predict_probability` preventing gradient backward propagation
 - [X] np arrays to cuda check
 - [X] numpy vs torch speed test in `generate_healpix_grid`
-- [ ] add recorder, metrics, and plotting
+- [X] add recorder, metrics, and plotting
 - [ ] Add gradient ascent to `predict_rotation` using argmax(logits) as initialization
 - [ ] Add positional encoding
-- [ ] train/eval mode in so3pdf
+- [X] train/eval mode in so3pdf
 - [ ] `output_pdf` are these really normalized?
-- [ ] compare authors Euler angle -> so3 grid to more intuitive axis-angle -> so3
+- [X] compare authors Euler angle -> so3 grid to more intuitive axis-angle -> so3; see Hopf coordinates
