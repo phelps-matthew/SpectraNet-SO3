@@ -61,7 +61,7 @@ class Trainer:
         # initialize so3 ipdf instance
         self.so3pdf = SO3PDF(cfg, self.implicit_model, self.img_model, self.device)
 
-        # set datloaders
+        # set dataloaders
         self.train_loader = self.create_dataloader(train=True)
         self.test_loader = self.create_dataloader(train=False)
 

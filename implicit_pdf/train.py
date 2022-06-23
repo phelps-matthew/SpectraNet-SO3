@@ -25,6 +25,7 @@ logging.basicConfig(
 
 
 def main():
+    # parse CLI args or yaml config
     cfg = pyrallis.parse(config_class=TrainConfig)
 
     # make deterministic
