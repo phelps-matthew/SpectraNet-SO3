@@ -2,11 +2,9 @@
 import io
 import logging
 import math
-from pathlib import Path
 
 import PIL
 from matplotlib import pyplot as plt
-import matplotlib.ticker as mticker
 import numpy as np
 import torch
 import torch.nn.functional as F
