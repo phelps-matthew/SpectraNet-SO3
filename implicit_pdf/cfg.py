@@ -118,7 +118,7 @@ class TrainConfig:
     len_img_feature: int = 512
     # rotation representation dimension
     rot_dims: int = 9
-    # sizes of fully connected layers in SO3MLP
+    # sizes of fully connected layers in SO3MLP (ipdf default)
     fc_sizes: List[int] = field(default_factory=lambda: [256, 256])
     # learning rate (if onecycle, max_lr)
     lr: float = 3e-4

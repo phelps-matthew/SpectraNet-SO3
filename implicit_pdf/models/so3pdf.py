@@ -12,10 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class SO3PDF:
-    def __init__(self, cfg, implicit_model, img_model, device="cpu"):
+    def __init__(self, cfg, implicit_model, device="cpu"):
         self.cfg = cfg
         self.implicit_model = implicit_model
-        self.img_model = img_model
         self.device = device
         self.num_train_queries = self.cfg.num_train_queries
         self.num_eval_queries = self.cfg.num_eval_queries
@@ -120,7 +119,7 @@ class SO3PDF:
         if self.grids.get(size) is not None:
             return self.grids[size]
         else:
-            logging.info(f"using grid of size {size}, requested was {num_queries}")
+            logging.info(f"using SO3 grid of size {size}, requested was {num_queries}")
             grid = generate_healpix_grid(size=size).astype(np.float32)
             self.grids[size] = torch.from_numpy(grid).to(self.device)
             return self.grids[size]
