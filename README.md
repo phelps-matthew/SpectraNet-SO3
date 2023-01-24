@@ -1,4 +1,4 @@
-# &#127922; SpectraNet-SO(3)
+# 🛰 SpectraNet-SO(3) 
 SpectraNet-SO(3): Learning Satellite Orientation from Optical Spectra By Implicitly Modeling Mutually Exclusive Probability Distributions on the Rotation Manifold (Official Repo)
 
 ## Installation
