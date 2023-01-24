@@ -24,16 +24,6 @@ cd implicit-pdf
 pip install -e .
 ```
 
-## Download raw Symmetric Solids dataset (SymSol 1.0.0)
-```
-# 3.1 GB download
-symsol_path="~/data/datasets/symsol_1.0.0"
-mkdir $symsol_path
-cd $symsol_path
-curl -O https://storage.googleapis.com/gresearch/implicit-pdf/symsol_dataset.zip
-unzip symsol_dataset.zip
-```
-
 ## Usage
 * Train implicit pdf model on GPU 0
 ```python
