@@ -1,6 +1,5 @@
-# &#127922; implicit-pdf
-Pytorch implementation of [Implicit Representation of Probability Distributions on the Rotation Manifold](https://github.com/google-research/google-research/tree/master/implicit_pdf) (ICML 2021)
-
+# &#127922; SpectraNet-SO(3)
+SpectraNet-SO(3): Learning Satellite Orientation from Optical Spectra By Implicitly Modeling Mutually Exclusive Probability Distributions on the Rotation Manifold (Official Repo)
 
 ## Installation
 * Create conda environment
